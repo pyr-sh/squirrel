@@ -16,7 +16,7 @@ func (p unionPart) ToSql() (sqlStr string, args []interface{}, err error) {
 	case SelectBuilder:
 		entity := builder.GetStruct(pred).(selectData)
 		sqlStr, args, err = entity.ToSql()
-		fmt.Println(sqlStr)
+		sqlStr = "(" + sqlStr + ")"
 	case string:
 		sqlStr = pred
 		args = p.args

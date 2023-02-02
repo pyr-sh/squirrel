@@ -23,9 +23,22 @@ type selectData struct {
 	OrderByParts      []Sqlizer
 	Limit             string
 	Offset            string
-	Union             []Sqlizer
-	UnionAll          []Sqlizer
 	Suffixes          []Sqlizer
+
+	// Unions stuff
+
+	Union    []Sqlizer
+	UnionAll []Sqlizer
+
+	// Unions can have their own OFFSET, LIMIT and ORDER BY clauses.
+	// Example:
+	// (SELECT a, b FROM test OFFSET 1 LIMIT 1 ORDER BY a)
+	// UNION
+	// (SELECT a, b FROM test OFFSET 2 LIMIT 2 ORDER BY b)
+	// OFFSET 1 LIMIT 1 ORDER BY b DESC, a ASC
+	UnionOffset       string
+	UnionLimit        string
+	UnionOrderByParts []Sqlizer
 }
 
 func (d *selectData) Exec() (sql.Result, error) {
@@ -78,6 +91,11 @@ func (d *selectData) toSqlRaw() (sqlStr string, args []interface{}, err error) {
 		}
 
 		sql.WriteString(" ")
+	}
+
+	hasUnion := len(d.Union) > 0 || len(d.UnionAll) > 0
+	if hasUnion {
+		sql.WriteRune('(')
 	}
 
 	sql.WriteString("SELECT ")
@@ -158,6 +176,10 @@ func (d *selectData) toSqlRaw() (sqlStr string, args []interface{}, err error) {
 		}
 	}
 
+	if hasUnion {
+		sql.WriteRune(')')
+	}
+
 	if len(d.Union) > 0 {
 		sql.WriteString(" UNION ")
 		args, err = appendToSql(d.Union, sql, " UNION ", args)
@@ -170,6 +192,26 @@ func (d *selectData) toSqlRaw() (sqlStr string, args []interface{}, err error) {
 		args, err = appendToSql(d.UnionAll, sql, " UNION ALL ", args)
 		if err != nil {
 			return
+		}
+	}
+
+	if len(d.Union) > 0 || len(d.UnionAll) > 0 {
+		if len(d.UnionOrderByParts) > 0 {
+			sql.WriteString(" ORDER BY ")
+			args, err = appendToSql(d.UnionOrderByParts, sql, ", ", args)
+			if err != nil {
+				return
+			}
+		}
+
+		if len(d.UnionLimit) > 0 {
+			sql.WriteString(" LIMIT ")
+			sql.WriteString(d.UnionLimit)
+		}
+
+		if len(d.UnionOffset) > 0 {
+			sql.WriteString(" OFFSET ")
+			sql.WriteString(d.UnionOffset)
 		}
 	}
 
@@ -380,10 +422,24 @@ func (b SelectBuilder) OrderByClause(pred interface{}, args ...interface{}) Sele
 	return builder.Append(b, "OrderByParts", newPart(pred, args...)).(SelectBuilder)
 }
 
+// UnionOrderByClause adds ORDER BY clause to the UNION (ALL) query.
+func (b SelectBuilder) UnionOrderByClause(pred interface{}, args ...interface{}) SelectBuilder {
+	return builder.Append(b, "UnionOrderByParts", newPart(pred, args...)).(SelectBuilder)
+}
+
 // OrderBy adds ORDER BY expressions to the query.
 func (b SelectBuilder) OrderBy(orderBys ...string) SelectBuilder {
 	for _, orderBy := range orderBys {
 		b = b.OrderByClause(orderBy)
+	}
+
+	return b
+}
+
+// UnionOrderBy adds ORDER BY expressions to the UNION (ALL) query.
+func (b SelectBuilder) UnionOrderBy(orderBys ...string) SelectBuilder {
+	for _, orderBy := range orderBys {
+		b = b.UnionOrderByClause(orderBy)
 	}
 
 	return b
@@ -394,9 +450,19 @@ func (b SelectBuilder) Limit(limit uint64) SelectBuilder {
 	return builder.Set(b, "Limit", fmt.Sprintf("%d", limit)).(SelectBuilder)
 }
 
+// UnionLimit sets a LIMIT clause on the UNION (ALL) query.
+func (b SelectBuilder) UnionLimit(unionLimit uint64) SelectBuilder {
+	return builder.Set(b, "UnionLimit", fmt.Sprintf("%d", unionLimit)).(SelectBuilder)
+}
+
 // Limit ALL allows to access all records with limit
 func (b SelectBuilder) RemoveLimit() SelectBuilder {
 	return builder.Delete(b, "Limit").(SelectBuilder)
+}
+
+// Limit ALL allows to access all records with limit
+func (b SelectBuilder) RemoveUnionLimit() SelectBuilder {
+	return builder.Delete(b, "UnionLimit").(SelectBuilder)
 }
 
 // Offset sets a OFFSET clause on the query.
@@ -404,9 +470,19 @@ func (b SelectBuilder) Offset(offset uint64) SelectBuilder {
 	return builder.Set(b, "Offset", fmt.Sprintf("%d", offset)).(SelectBuilder)
 }
 
+// UnionOffset sets a OFFSET clause on the UNION (ALL) query.
+func (b SelectBuilder) UnionOffset(offset uint64) SelectBuilder {
+	return builder.Set(b, "UnionOffset", fmt.Sprintf("%d", offset)).(SelectBuilder)
+}
+
 // RemoveOffset removes OFFSET clause.
 func (b SelectBuilder) RemoveOffset() SelectBuilder {
 	return builder.Delete(b, "Offset").(SelectBuilder)
+}
+
+// RemoveUnionOffset removes OFFSET clause from UNION (ALL) query.
+func (b SelectBuilder) RemoveUnionOffset() SelectBuilder {
+	return builder.Delete(b, "UnionOffset").(SelectBuilder)
 }
 
 // Suffix adds an expression to the end of the query
