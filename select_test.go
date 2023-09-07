@@ -87,7 +87,7 @@ func TestSelectBuilderFromValues(t *testing.T) {
 
 	fmt.Println(sql, args)
 
-	expectedSql := "SELECT * FROM (values ('a', 'b', 'c'), (4, 'e', 'f'), (?, 'h', 'j')) AS root(x, y, z)"
+	expectedSql := "SELECT * FROM (VALUES ('a', 'b', 'c'), (4, 'e', 'f'), (?, 'h', 'j')) AS root(x, y, z)"
 	assert.Equal(t, expectedSql, sql)
 
 	expectedArgs := []interface{}{"g"}

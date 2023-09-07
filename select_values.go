@@ -14,7 +14,7 @@ type selectValues struct {
 func (sv selectValues) ToSql() (string, []interface{}, error) {
 	var res strings.Builder
 	var args []interface{}
-	res.WriteString("values ")
+	res.WriteString("VALUES ")
 	for i, row := range sv.values {
 		if i != 0 {
 			res.WriteString(", ")
