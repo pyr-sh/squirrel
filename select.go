@@ -331,7 +331,8 @@ func (b SelectBuilder) RemoveColumns() SelectBuilder {
 // Column adds a result column to the query.
 // Unlike Columns, Column accepts args which will be bound to placeholders in
 // the columns string, for example:
-//   Column("IF(col IN ("+squirrel.Placeholders(3)+"), 1, 0) as col", 1, 2, 3)
+//
+//	Column("IF(col IN ("+squirrel.Placeholders(3)+"), 1, 0) as col", 1, 2, 3)
 func (b SelectBuilder) Column(column interface{}, args ...interface{}) SelectBuilder {
 	return builder.Append(b, "Columns", newPart(column, args...)).(SelectBuilder)
 }
@@ -346,6 +347,14 @@ func (b SelectBuilder) FromSelect(from SelectBuilder, alias string) SelectBuilde
 	// Prevent misnumbered parameters in nested selects (#183).
 	from = from.PlaceholderFormat(Question)
 	return builder.Set(b, "From", Alias(from, alias)).(SelectBuilder)
+}
+
+// FromValues sets a set of VALUES into the FROM clause of the query e.g. SELECT * FROM (VALUES ('a', 'b'), ('c', 'd')) AS root(x, y)
+func (b SelectBuilder) FromValues(values [][]interface{}, alias string, def ...string) SelectBuilder {
+	return builder.Set(b, "From", fromValuesSelectAlias{
+		aliasExpr:  aliasExpr{expr: selectValues{values}, alias: alias},
+		definition: def,
+	}).(SelectBuilder)
 }
 
 // JoinClause adds a join clause to the query.

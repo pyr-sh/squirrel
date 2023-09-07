@@ -76,6 +76,24 @@ func TestSelectBuilderFromSelect(t *testing.T) {
 	assert.Equal(t, expectedArgs, args)
 }
 
+func TestSelectBuilderFromValues(t *testing.T) {
+	q := Select("*").FromValues([][]interface{}{
+		{"a", "b", "c"},
+		{4, "e", "f"},
+		{Expr("?", "g"), "h", "j"},
+	}, "root", "x", "y", "z")
+	sql, args, err := q.ToSql()
+	assert.NoError(t, err)
+
+	fmt.Println(sql, args)
+
+	expectedSql := "SELECT * FROM (VALUES ('a', 'b', 'c'), (4, 'e', 'f'), (?, 'h', 'j')) AS root(x, y, z)"
+	assert.Equal(t, expectedSql, sql)
+
+	expectedArgs := []interface{}{"g"}
+	assert.Equal(t, expectedArgs, args)
+}
+
 func TestSelectBuilderFromSelectNestedDollarPlaceholders(t *testing.T) {
 	subQ := Select("c").
 		From("t").
