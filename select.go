@@ -349,6 +349,7 @@ func (b SelectBuilder) FromSelect(from SelectBuilder, alias string) SelectBuilde
 	return builder.Set(b, "From", Alias(from, alias)).(SelectBuilder)
 }
 
+// FromValues sets a set of VALUES into the FROM clause of the query e.g. SELECT * FROM (VALUES ('a', 'b'), ('c', 'd')) AS root(x, y)
 func (b SelectBuilder) FromValues(values [][]interface{}, alias string, def ...string) SelectBuilder {
 	return builder.Set(b, "From", fromValuesSelectAlias{
 		aliasExpr:  aliasExpr{expr: selectValues{values}, alias: alias},
